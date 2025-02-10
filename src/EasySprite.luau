@@ -43,7 +43,7 @@ type SpriteSheet = {
 
 	extend: (sheet: SpriteSheet) -> (),
 
-	size: () -> number
+	length: () -> number
 }
 
 local constructor = {}
