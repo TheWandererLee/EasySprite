@@ -5,10 +5,7 @@ local RunService = game:GetService('RunService')
 
 type SpriteSheet = {
 	display: (cell: number) -> (),
-	isFlipped: () -> (),
-	flip: () -> (),
-	totalCells: number,
-	currentCell: number,
+	--...
 	instance: ImageLabel
 }
 

@@ -1,7 +1,7 @@
 --!strict
 --!native
 
---Version 1.2.1
+--Version 1.3.0
 
 type CellData = {
 	offset: Vector2,
@@ -10,15 +10,40 @@ type CellData = {
 }
 
 type SpriteSheet = {
+	--[[
+		@deprecated use self.size() instead
+	]]
 	totalCells: number,
+
 	currentCell: number,
+
 	instance: ImageLabel,
+
 	_frames: {CellData},
 	
 	display: (cellIndex: number) -> (),
-	isFlipped: () -> (),
+
+	--[[
+		@deprecated use self.isMirroredX() instead
+	]]
+	isFlipped: () -> boolean,
+
+	isMirroredX: () -> boolean,
+
+	isMirroredY: () -> boolean,
+
+	--[[
+		@deprecated use self.mirrorX() instead
+	]]
 	flip: () -> (),
-	extend: (sheet: SpriteSheet) -> ()
+
+	mirrorX: () -> (),
+
+	mirrorY: () -> (),
+
+	extend: (sheet: SpriteSheet) -> (),
+
+	size: () -> number
 }
 
 local constructor = {}
@@ -40,30 +65,51 @@ local function newSpriteSheet(images: {CellData}, label: ImageLabel): SpriteShee
 		if not sameVectors(label.ImageRectSize, cell.size) then label.ImageRectSize = cell.size end
 		
 		label.ImageRectOffset = 
-			if spritesheet.isFlipped()
-			then cell.offset - Vector2.xAxis*label.ImageRectSize.X
-			else cell.offset
-		
+			Vector2.new(
+				if spritesheet.isMirroredX() then cell.offset.X - label.ImageRectSize.X else cell.offset.X,
+				if spritesheet.isMirroredY() then cell.offset.Y - label.ImageRectSize.Y else cell.offset.Y
+			)
+
 		spritesheet.currentCell = cellIndex
 	end
 	
 	function spritesheet.flip()
+		spritesheet.mirrorX()
+	end
+
+	function spritesheet.mirrorX()
 		label.ImageRectSize = label.ImageRectSize * Vector2.new(-1, 1)
 		spritesheet.display(spritesheet.currentCell)
 	end
 	
+	function spritesheet.mirrorY()
+		label.ImageRectSize = label.ImageRectSize * Vector2.new(1, -1)
+		spritesheet.display(spritesheet.currentCell)
+	end
+
 	function spritesheet.isFlipped()
-		return label.ImageRectSize.X < 0
+		spritesheet.isMirroredX()
 	end
 	
+	function spritesheet.isMirroredX()
+		return label.ImageRectSize.X < 0
+	end
+
+	function spritesheet.isMirroredY()
+		return label.ImageRectSize.Y < 0
+	end
+
 	function spritesheet.extend(sheet)
 		for _, cell in sheet._frames do
 			images[#images+1] = cell
 		end
-		
+		--deprecated functionality
 		spritesheet.totalCells = #images
 	end
 	
+	function spritesheet.length()
+		return #images
+	end
 	
 	spritesheet.display(1)
 	return spritesheet
