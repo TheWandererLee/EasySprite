@@ -11,14 +11,19 @@ type SpriteSheet = {
 
 type Sequence = {
 	looping: boolean,
+	reverses: boolean,
 	cells: {number},
 	framerate: number,
-	
-	play: (fps: number, looping: boolean?) -> (),
+
+	play: (fps: number, looping: boolean?, reverses: boolean?) -> (),
 	stop: () -> (),
 	isPlaying: () -> boolean,
 	_nextFrame: (now: number) -> (),
+	_previousFrame: (now: number) -> (),
+	_playingInReverse: boolean,
 	
+	_didLoopBindable: BindableEvent,
+	didLoop: RBXScriptSignal,
 }
 
 local MAX_FPS = 60
@@ -49,7 +54,11 @@ do
 				continue
 			end
 			
-			sequence._nextFrame(now)
+			if sequence._playingInReverse then
+				sequence._previousFrame(now)
+			else
+				sequence._nextFrame(now)
+			end
 		end
 	end)
 end
@@ -60,12 +69,20 @@ local constructor = {}
 function constructor.new(spritesheet: SpriteSheet, cells: {number})
 	local sequence = {
 		looping = false,
+		reverses = false,
 		cells = cells,
 		framerate = MAX_FPS,
+		_playingInReverse = false,
+		_didLoopBindable = Instance.new("BindableEvent")
 	} :: Sequence
-	
-	function sequence.play(fps: number, looping: boolean?)
-		looping = looping or false; fps = fps or MAX_FPS
+
+	sequence.didLoop = sequence._didLoopBindable.Event
+
+	function sequence.play(fps: number, looping: boolean?, reverses: boolean?)
+		reverses = reverses or false
+		looping = looping or false
+		fps = fps or MAX_FPS
+		sequence.reverses = reverses :: boolean
 		sequence.looping = looping :: boolean
 		sequence.framerate = fps
 		
@@ -96,8 +113,35 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 		
 		if current_sequence_index >= #cells then
 			if sequence.looping then
-				current_sequence_index = 0
+				if sequence.reverses then
+					sequence._playingInReverse = true
+				else
+					current_sequence_index = 0
+					sequence._didLoopBindable:Fire()
+				end
 			else
+				if sequence.reverses then
+					sequence._playingInReverse = true
+				else
+					sequence.stop()
+				end
+			end
+		end
+	end
+	
+	function sequence._previousFrame(now: number)
+		if now - last_execution <  1/sequence.framerate then return end
+		last_execution = now
+		
+		current_sequence_index -= 1
+		spritesheet.display(cells[current_sequence_index])
+		
+		if current_sequence_index <= 1 then
+			if sequence.looping then
+				sequence._playingInReverse = false
+				sequence._didLoopBindable:Fire()
+			else
+				sequence._playingInReverse = false
 				sequence.stop()
 			end
 		end
@@ -105,6 +149,7 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 	
 	function sequence.stop()
 		current_sequence_index = 0
+		sequence._playingInReverse = false
 		
 		local activesequence = activeSequences[spritesheet.instance]
 		if not activesequence then return end
