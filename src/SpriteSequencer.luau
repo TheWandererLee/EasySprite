@@ -14,7 +14,7 @@ type Sequence = {
 	reverses: boolean,
 	cells: {number},
 	framerate: number,
-
+	
 	play: (fps: number, looping: boolean?, reverses: boolean?) -> (),
 	stop: () -> (),
 	isPlaying: () -> boolean,
