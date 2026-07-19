@@ -1,7 +1,7 @@
 --!strict
 --!native
 
---Version 1.3.0
+--Version 1.4.0
 
 type CellData = {
 	offset: Vector2,
@@ -43,7 +43,10 @@ type SpriteSheet = {
 
 	extend: (sheet: SpriteSheet) -> (),
 
-	length: () -> number
+	length: () -> number,
+
+	destroy: () -> (),
+	Destroy: () -> (),
 }
 
 local constructor = {}
@@ -88,7 +91,7 @@ local function newSpriteSheet(images: {CellData}, label: ImageLabel): SpriteShee
 	end
 
 	function spritesheet.isFlipped()
-		spritesheet.isMirroredX()
+		return spritesheet.isMirroredX()
 	end
 	
 	function spritesheet.isMirroredX()
@@ -110,6 +113,23 @@ local function newSpriteSheet(images: {CellData}, label: ImageLabel): SpriteShee
 	function spritesheet.length()
 		return #images
 	end
+
+	function spritesheet.destroy()
+		spritesheet.instance = nil :: any
+		table.clear(images)
+		table.clear(spritesheet)
+
+		--poison table for debugging (use after free)
+		setmetatable(spritesheet :: any, {
+            __index = function(_, key)
+                error(`Attempt to access {key} on a destroyed SpriteSheet`, 2)
+            end,
+            __newindex = function()
+                error("Attempt to modify a destroyed SpriteSheet", 2)
+            end
+        })
+	end
+	spritesheet.Destroy = spritesheet.destroy
 	
 	spritesheet.display(1)
 	return spritesheet
@@ -128,7 +148,7 @@ function constructor.new(label: ImageLabel, assetUrl: string, imgSize: Vector2, 
 	label.ImageRectSize = cellSize
 	label.ImageRectOffset = Vector2.zero
 	
-	local images = {} :: {CellData}
+	local images = table.create(columns*rows) :: {CellData}
 	
 	do --create image array from grid
 		local y = 0

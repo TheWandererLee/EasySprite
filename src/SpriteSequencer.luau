@@ -31,6 +31,9 @@ type Sequence = {
 	play: (fps: number, looping: boolean?, reverses: boolean?) -> (),
 	stop: () -> (),
 	isPlaying: () -> boolean,
+	destroy: () -> (),
+	Destroy: () -> (),
+
 	_nextFrame: (now: number) -> (),
 	_previousFrame: (now: number) -> (),
 	_playingInReverse: boolean,
@@ -44,11 +47,10 @@ local MAX_FPS = 60
 local activeSequences: {[ImageLabel]: Sequence} = {}
 
 do
-	local scheduler = if RunService:IsClient() then 'RenderStepped' else 'Heartbeat'
-	
+	local scheduler = (if RunService:IsClient() then RunService.RenderStepped else RunService.Heartbeat) :: RBXScriptSignal<number>
 	local t = tick()
 	local frames = 0
-	RunService[scheduler]:Connect(function()
+	scheduler:Connect(function()
 		--calculate FPS
 		frames += 1
 		local now = tick()
@@ -169,6 +171,24 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 		activeSequences[spritesheet.instance] = nil
 	end
 	
+	function sequence.destroy()
+		sequence.stop()
+
+		table.clear(sequence.cells)
+		table.clear(sequence)
+
+		--poison table for debugging (use after free)
+		setmetatable(sequence :: any, {
+            __index = function(_, key)
+                error(`Attempt to access {key} on a destroyed Sequence`, 2)
+            end,
+            __newindex = function()
+                error("Attempt to modify a destroyed Sequence", 2)
+            end
+        })
+	end
+	sequence.Destroy = sequence.destroy
+
 	return sequence
 end
 
