@@ -11,6 +11,7 @@ type Connection = {
 type Signal = {
 	Connect: (self: Signal, callback: () -> ()) -> Connection,
 	Fire: (self: Signal) -> (),
+	Destroy: (self: Signal) -> (),
 }
 
 --replace with custom signal library if desired
@@ -174,6 +175,8 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 	function sequence.destroy()
 		sequence.stop()
 
+		sequence.didLoop:Destroy()
+
 		table.clear(sequence.cells)
 		table.clear(sequence)
 
@@ -223,6 +226,11 @@ createSignal = function(): Signal
 		end
 	end
 	
+	function signal:Destroy()
+		table.clear(listeners)
+		table.clear(signal)
+	end
+
 	return signal :: Signal
 end
 
