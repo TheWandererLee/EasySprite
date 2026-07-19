@@ -3,6 +3,19 @@
 
 local RunService = game:GetService('RunService')
 
+-- Signal types
+type Connection = {
+	Disconnect: () -> ()
+}
+
+type Signal = {
+	Connect: (self: Signal, callback: () -> ()) -> Connection,
+	Fire: (self: Signal) -> (),
+}
+
+--replace with custom signal library if desired
+local createSignal: () -> Signal
+
 type SpriteSheet = {
 	display: (cell: number) -> (),
 	--...
@@ -22,8 +35,8 @@ type Sequence = {
 	_previousFrame: (now: number) -> (),
 	_playingInReverse: boolean,
 	
-	_didLoopBindable: BindableEvent,
-	didLoop: RBXScriptSignal,
+	-- replace the bindable with our custom Signal
+	didLoop: Signal, 
 }
 
 local MAX_FPS = 60
@@ -73,10 +86,8 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 		cells = cells,
 		framerate = MAX_FPS,
 		_playingInReverse = false,
-		_didLoopBindable = Instance.new("BindableEvent")
+		didLoop = createSignal() 
 	} :: Sequence
-
-	sequence.didLoop = sequence._didLoopBindable.Event
 
 	function sequence.play(fps: number, looping: boolean?, reverses: boolean?)
 		reverses = reverses or false
@@ -117,7 +128,7 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 					sequence._playingInReverse = true
 				else
 					current_sequence_index = 0
-					sequence._didLoopBindable:Fire()
+					sequence.didLoop:Fire() 
 				end
 			else
 				if sequence.reverses then
@@ -139,7 +150,7 @@ function constructor.new(spritesheet: SpriteSheet, cells: {number})
 		if current_sequence_index <= 1 then
 			if sequence.looping then
 				sequence._playingInReverse = false
-				sequence._didLoopBindable:Fire()
+				sequence.didLoop:Fire() 
 			else
 				sequence._playingInReverse = false
 				sequence.stop()
@@ -168,6 +179,31 @@ function constructor.fromRange(spritesheet: SpriteSheet, from: number, to: numbe
 	for i = from, to do cells[#cells+1] = i end
 	
 	return constructor.new(spritesheet, cells)
+end
+
+-- lightweight signal implementation
+createSignal = function(): Signal
+	local listeners = {}
+	local signal = {}
+	
+	function signal:Connect(callback)
+		local node = { callback = callback }
+		listeners[node] = true
+		
+		return {
+			Disconnect = function()
+				listeners[node] = nil
+			end
+		}
+	end
+	
+	function signal:Fire()
+		for node in listeners do
+			task.spawn(node.callback) 
+		end
+	end
+	
+	return signal :: Signal
 end
 
 return constructor
